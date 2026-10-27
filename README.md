@@ -1,5 +1,9 @@
 # CS4023 Distributed Systems Shapes
 
+<p align="center">
+  <img src=".github/logo.png" alt="lm051-cs4023-distribute-systems-shapes logo" width="128" />
+</p>
+
 Java assignments for the CS4023 module, from the LM051 Computer Systems degree
 at the University of Limerick. They draw shapes and send them between programs
 over sockets.
