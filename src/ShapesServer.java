@@ -1,8 +1,11 @@
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InvalidClassException;
 import java.io.ObjectInputFilter;
 import java.io.ObjectInputFilter.Config;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.ObjectStreamClass;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -43,7 +46,7 @@ public final class ShapesServer {
     this.connection = this.listenerSocket.accept();
     String host = this.connection.getInetAddress().getHostName();
     System.out.println("Connection received from " + host);
-    this.in = new ObjectInputStream(this.connection.getInputStream());
+    this.in = new ShapesInputStream(this.connection.getInputStream());
     // Reject anything but shapes to prevent deserialization gadget attacks.
     ObjectInputFilter filter = Config.createFilter(SHAPES_FILTER);
     this.in.setObjectInputFilter(filter);
@@ -56,5 +59,37 @@ public final class ShapesServer {
         System.err.println("????");
       }
     } while (in.readObject() != null);
+  }
+
+  /** Object stream that only resolves allow-listed shape classes. */
+  private static final class ShapesInputStream extends ObjectInputStream {
+    /**
+     * Wrap a raw stream.
+     *
+     * @param stream raw socket input
+     * @throws IOException on stream header errors
+     */
+    ShapesInputStream(final InputStream stream) throws IOException {
+      super(stream);
+    }
+
+    @Override
+    protected Class<?> resolveClass(final ObjectStreamClass desc)
+        throws IOException, ClassNotFoundException {
+      String name = desc.getName();
+      boolean allowed =
+          name.equals("Shape")
+              || name.equals("Line")
+              || name.equals("Oval")
+              || name.equals("Rectangle")
+              || name.startsWith("java.awt.Color")
+              || name.startsWith("java.awt.color.")
+              || name.startsWith("java.lang.")
+              || name.startsWith("java.util.");
+      if (!allowed) {
+        throw new InvalidClassException("Unauthorized class", name);
+      }
+      return super.resolveClass(desc);
+    }
   }
 }
