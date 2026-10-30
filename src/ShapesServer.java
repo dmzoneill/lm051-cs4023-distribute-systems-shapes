@@ -15,6 +15,10 @@ public class ShapesServer
 		this.connection = this.listenerSocket.accept();		
 		System.out.println("Connection received from " + this.connection.getInetAddress().getHostName());
 		this.in = new ObjectInputStream( this.connection.getInputStream() );
+		// Only accept the shape classes (and the JDK types they contain) from the network;
+		// reject everything else to prevent deserialization gadget attacks.
+		this.in.setObjectInputFilter( ObjectInputFilter.Config.createFilter(
+				"Shape;Line;Oval;Rectangle;java.awt.Color;java.awt.color.*;java.lang.*;java.util.*;maxdepth=20;!*" ) );
 
 		do
 		{
