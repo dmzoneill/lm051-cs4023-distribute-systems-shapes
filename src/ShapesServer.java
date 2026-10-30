@@ -1,39 +1,60 @@
-import java.io.*;
-import java.net.*;
+import java.io.IOException;
+import java.io.ObjectInputFilter;
+import java.io.ObjectInputFilter.Config;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.ArrayList;
 
-public class ShapesServer 
-{
-	ServerSocket listenerSocket;
-	Socket connection = null;
-	ObjectInputStream in;
-	private ArrayList <ObjectOutputStream> shapesSerialized;
-	
-	public void listen() throws IOException, ClassNotFoundException
-	{
-		this.listenerSocket = new ServerSocket( 56000 , 10 );
-		this.connection = this.listenerSocket.accept();		
-		System.out.println("Connection received from " + this.connection.getInetAddress().getHostName());
-		this.in = new ObjectInputStream( this.connection.getInputStream() );
-		// Only accept the shape classes (and the JDK types they contain) from the network;
-		// reject everything else to prevent deserialization gadget attacks.
-		this.in.setObjectInputFilter( ObjectInputFilter.Config.createFilter(
-				"Shape;Line;Oval;Rectangle;java.awt.Color;java.awt.color.*;java.lang.*;java.util.*;maxdepth=20;!*" ) );
+/** Receives serialized shapes from a client over a socket. */
+public final class ShapesServer {
+  /** TCP port the server listens on. */
+  private static final int PORT = 56000;
 
-		do
-		{
-			try
-			{
-				this.shapesSerialized.add( (ObjectOutputStream) in.readObject() );					
-				
-			}
-			catch( ClassNotFoundException classnot )
-			{
-				System.err.println("????");
-			}
-		}
-		while( in.readObject() != null );
-		
-	}	
+  /** Maximum queued incoming connections. */
+  private static final int BACKLOG = 10;
 
+  /** Allow-list for network deserialization; all else is rejected. */
+  private static final String SHAPES_FILTER =
+      "Shape;Line;Oval;Rectangle;java.awt.Color;java.awt.color.*;"
+          + "java.lang.*;java.util.*;maxdepth=20;!*";
+
+  /** Listening socket. */
+  private ServerSocket listenerSocket;
+
+  /** Accepted client connection. */
+  private Socket connection = null;
+
+  /** Stream of objects from the client. */
+  private ObjectInputStream in;
+
+  /** Received shapes. */
+  private ArrayList<ObjectOutputStream> shapesSerialized;
+
+  /**
+   * Accept one client and read shapes until it sends null.
+   *
+   * @throws IOException on socket errors
+   * @throws ClassNotFoundException if a received class is unknown
+   */
+  public void listen() throws IOException, ClassNotFoundException {
+    this.listenerSocket = new ServerSocket(PORT, BACKLOG);
+    this.connection = this.listenerSocket.accept();
+    String host = this.connection.getInetAddress().getHostName();
+    System.out.println("Connection received from " + host);
+    this.in = new ObjectInputStream(this.connection.getInputStream());
+    // Reject anything but shapes to prevent deserialization gadget attacks.
+    ObjectInputFilter filter = Config.createFilter(SHAPES_FILTER);
+    this.in.setObjectInputFilter(filter);
+
+    do {
+      try {
+        this.shapesSerialized.add((ObjectOutputStream) in.readObject());
+
+      } catch (ClassNotFoundException classnot) {
+        System.err.println("????");
+      }
+    } while (in.readObject() != null);
+  }
 }
